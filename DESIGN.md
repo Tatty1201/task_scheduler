@@ -26,7 +26,8 @@ Windows タスクスケジューラ (3時間おき)
 
 | ファイル | 責務 |
 |---|---|
-| `main.py` | CLI エントリポイント（auth / sync / reset） |
+| `main.py` | CLI エントリポイント（`setup-google` / `auth` / `sync` / `reset`） |
+| `src/setup_google.py` | Google OAuth 半自動ウィザード（Console URL 起動・`credentials.json` 検証） |
 | `src/config.py` | `.env` + `accounts.yml` 読み込み・設定値の保持 |
 | `src/logger.py` | logging セットアップ |
 | `src/chatwork_client.py` | Chatwork API 薄いラッパー（`list_my_tasks` / `get_message`） |
@@ -92,6 +93,18 @@ CREATE TABLE task_events (
 |---|---|---|
 | `chatwork_task_key` | `<account_name>:<task_id>` | 重複検出（events.list で検索） |
 
+## Google OAuth と「誰でも使える」への限界
+
+Google はカレンダー書き込みのための OAuth を **各利用者が自分の Google Cloud プロジェクトで用意する** か、**配布元が1つの OAuth アプリを Google の審査（検証）に出して「本番公開」する** かのどちらかが現実的です。
+
+| 方式 | メリット | デメリット |
+|---|---|---|
+| 現状（各自が Desktop OAuth を作る） | 無料・配布元に責任が集中しない | Console 操作が面倒 |
+| `main.py setup-google` | ページを順に開き JSON を検証し認証まで誘導（半自動） | クリック操作は人が行う |
+| 配布元が検証済み OAuth アプリを1つ公開 | 利用者は同意画面だけ（Console 不要） | Google の審査・プライバシーポリシー・運用コストが必要 |
+
+完全自動（プロジェクト作成から認証までワンコマンド）は、Google のポリシーと API の設計上ほぼ不可能です。今後「本当に誰でも」を目指すなら、検証済み OAuth か、配布元がホストする小さな Web サービス（同意後にトークンを返す）への進化が候補になります。
+
 ## TODO / 将来の拡張
 
 - [ ] 自分が依頼したタスクの追加同期オプション（`--mode=created_by_me`）
@@ -99,3 +112,4 @@ CREATE TABLE task_events (
 - [ ] 完了したタスクのイベントタイトルに `✅` を付ける（運用見直し時）
 - [ ] サマリ通知（同期件数を Slack 等に投げる）
 - [ ] 単体テスト（`task_mapper` の日時計算、`sync_state` の複合キー動作）
+- [ ] Google OAuth アプリの本番検証（利用者が Console を触らない配布形態）

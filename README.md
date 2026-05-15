@@ -117,7 +117,10 @@ python main.py sync
 
 | コマンド | 動作 |
 |---------|------|
-| `python main.py auth` | Google OAuth ブラウザ認可（初回 / 再認証） |
+| `python main.py setup-google` | **初回推奨** Google Cloud のページを順に開き、`credentials.json` を検証し、OAuth 認証まで案内 |
+| `python main.py setup-google --no-browser` | 上記と同じがブラウザは開かない（URLのみ表示） |
+| `python main.py setup-google --skip-auth` | `credentials.json` の検証のみ（`auth` は実行しない） |
+| `python main.py auth` | Google OAuth ブラウザ認可のみ（`credentials.json` がある前提） |
 | `python main.py sync` | `accounts.yml` の全アカウントを順に同期 |
 | `python main.py sync --dry-run` | カレンダーに書き込まずログ出力 |
 | `python main.py reset` | `sync_state.db` を初期化（カレンダーのイベントは残る） |

@@ -120,6 +120,14 @@ python -m venv .venv
 
 #### 6. Google 認証
 
+**おすすめ:** Console の必要ページを順に開き、`credentials.json` を検証してから OAuth まで案内します。
+
+```powershell
+.\.venv\Scripts\python.exe main.py setup-google
+```
+
+すでに `credentials.json` を自分で置いた場合のみ:
+
 ```powershell
 .\.venv\Scripts\python.exe main.py auth
 ```
@@ -200,9 +208,9 @@ ZIP で配布する前にチェック:
 - [ ] フォルダを好きな場所に置いた
 - [ ] `.env.example` をコピーして `.env` を作った
 - [ ] `accounts.yml.example` をコピーして `accounts.yml` を作り、自分のトークンとIDを書いた
-- [ ] 自分の Google Cloud プロジェクトを作って `credentials.json` を配置した
+- [ ] 自分の Google Cloud プロジェクトを作り、`setup-google` で進めた **または** `credentials.json` を自分で配置した
 - [ ] `python -m venv .venv` と `pip install -r requirements.txt` を実行した
-- [ ] `python main.py auth` で Google 認証した
+- [ ] `python main.py setup-google` で Google 手順を進めた **または** `python main.py auth` で Google 認証した
 - [ ] `python main.py sync --dry-run` でエラーが出ないことを確認した
 - [ ] `python main.py sync` でカレンダーに予定が入った
 - [ ] タスクスケジューラに登録した

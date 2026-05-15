@@ -1,7 +1,8 @@
 """Chatwork → Googleカレンダー 同期ツール エントリポイント。
 
 使い方:
-    python main.py auth                # 初回認証 (ブラウザを開く)
+    python main.py setup-google        # Google OAuth 半自動セットアップ（推奨・初回）
+    python main.py auth                # 初回認証のみ (ブラウザを開く)
     python main.py sync                # 1回同期する (accounts.yml の全アカウント)
     python main.py sync --dry-run      # 書き込まずログ出力のみ
     python main.py reset               # sync_state.db を初期化
@@ -14,6 +15,7 @@ import sys
 from src.config import load_config
 from src.google_calendar import GoogleCalendarClient, authenticate
 from src.logger import setup_logger
+from src.setup_google import run_setup_wizard
 from src.sync import run_sync
 from src.sync_state import SyncStateStore
 
@@ -52,6 +54,11 @@ def cmd_sync(dry_run: bool) -> int:
     return 1 if has_failure else 0
 
 
+def cmd_setup_google(open_browser: bool, run_auth: bool) -> int:
+    """Google Cloud / OAuth の半自動ウィザード。"""
+    return run_setup_wizard(open_browser=open_browser, run_auth_after=run_auth)
+
+
 def cmd_reset() -> int:
     """同期状態DBをクリアする (カレンダーのイベントは消さない)。"""
     config = load_config()
@@ -67,6 +74,21 @@ def build_parser() -> argparse.ArgumentParser:
         description="Chatwork タスクを Google カレンダーに自動登録する",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    p_setup = subparsers.add_parser(
+        "setup-google",
+        help="Google Calendar OAuth の半自動セットアップ（Console を順に開く）",
+    )
+    p_setup.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="ブラウザを自動で開かない（URLだけ表示）",
+    )
+    p_setup.add_argument(
+        "--skip-auth",
+        action="store_true",
+        help="credentials.json の検証まで（OAuth 認証は実行しない）",
+    )
 
     subparsers.add_parser("auth", help="Google OAuth 認可")
 
@@ -86,6 +108,11 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     try:
+        if args.command == "setup-google":
+            return cmd_setup_google(
+                open_browser=not args.no_browser,
+                run_auth=not args.skip_auth,
+            )
         if args.command == "auth":
             return cmd_auth()
         if args.command == "sync":
