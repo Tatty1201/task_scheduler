@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+
+# 仮想環境
+.venv/
+venv/
+
+# 環境変数・秘匿情報
+.env
+.env.local
+accounts.yml
+
+# Google OAuth
+credentials.json
+token.json
+
+# SQLite
+*.db
+*.db-journal
+
+# ログ
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

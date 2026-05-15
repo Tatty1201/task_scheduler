@@ -1,0 +1,15 @@
+# 複数 Chatwork アカウントを登録できる。
+# `name` は内部識別子（重複防止キーに使用）。半角英数とアンダースコアで一意に。
+# 名前は Google カレンダーには表示されない。
+#
+# このファイルを accounts.yml にコピーして編集する。
+
+accounts:
+  - name: main
+    chatwork_api_token: your_token_for_main_account
+    chatwork_my_account_id: 1234567
+
+  # 必要なら2つ目以降を追記
+  # - name: client_a
+  #   chatwork_api_token: your_token_for_client_a
+  #   chatwork_my_account_id: 7654321
