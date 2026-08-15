@@ -1,330 +1,286 @@
 # 利用マニュアル（はじめての方向け）
 
-このツールは **Chatwork で自分が担当のタスクを Google カレンダーに自動登録する** ものです。
-3時間ごとに自動でカレンダーに予定を追加してくれます。
+このツールは、**Chatworkで自分に割り当てられたタスクをGoogle Calendarへ自動登録する**ためのものです。
 
-このマニュアルはコーディング未経験の方でも進められるように書いてあります。
-**所要時間: 約30〜60分**
+プログラミング経験がなくても使えるように、最初から順番に説明します。
 
----
+## 最初に必要なもの
 
-## 全体の流れ
+- Windows / macOS / Linux のPC
+- Python 3.10以上
+- ChatworkアカウントとAPIトークン
+- Googleアカウント
 
-1. 必要なソフトをインストール
-2. ツールのフォルダを置く
-3. Chatwork の API トークンを取得
-4. Google アカウントで認証する準備
-5. 設定ファイルを書く
-6. 動作確認
-7. 自動実行を設定
+> Chatworkの「アカウントID」は不要です。必要なのはAPIトークンだけです。
 
 ---
 
-## ステップ1: Python をインストール
+## 1. Pythonをインストール
 
-Python（パイソン）というプログラミング言語の実行環境が必要です。
+Python 3.10以上をインストールしてください。
 
-1. [Python 公式サイト](https://www.python.org/downloads/windows/) にアクセス
-2. 「Download Python 3.x.x」（数字は3.10以上）の黄色いボタンをクリック
-3. ダウンロードしたインストーラを実行
-4. **必ずチェック！**: インストール画面の一番下にある **「Add python.exe to PATH」** にチェックを入れる
-5. 「Install Now」をクリック
+インストール後、ターミナルまたはPowerShellで確認します。
 
-### 確認
-
-PowerShell（スタートメニューで「PowerShell」と検索）を開いて以下を入力:
-
-```powershell
+```bash
 python --version
 ```
 
-`Python 3.x.x` と表示されればOKです。
+`Python 3.10` 以上が表示されればOKです。
+
+Windowsでは、Pythonインストール時に **Add python.exe to PATH** を有効にしておくと簡単です。
 
 ---
 
-## ステップ2: ツールのフォルダを置く
+## 2. task_schedulerを取得
 
-ツール一式（`task_scheduler` というフォルダ）を、わかりやすい場所に置きます。
+GitHubからcloneします。
 
-**おすすめの置き場所:**
+```bash
+git clone https://github.com/Tatty1201/task_scheduler.git
+cd task_scheduler
 ```
-C:\Users\(あなたのユーザー名)\Documents\task_scheduler
+
+Gitを使わない場合は、GitHubからZIPを取得して展開しても構いません。
+
+---
+
+## 3. 仮想環境を作成
+
+```bash
+python -m venv .venv
 ```
 
-または、お使いの環境に合わせた場所でも構いません。
-
-> ※ コード配布を受け取る方法については [DISTRIBUTION.md](DISTRIBUTION.md) を参照してください。
-
----
-
-## ステップ3: Chatwork API トークンを取得
-
-Chatwork が「このツールが Chatwork を見ていいですよ」と認める鍵を作ります。
-
-1. Chatwork にブラウザでログイン
-2. [API トークン取得ページ](https://www.chatwork.com/service/packages/chatwork/subpackages/api/token.php) を開く
-3. ログインパスワードを入れて「表示」をクリック
-4. 表示された **API トークン** をコピーしておく（後で使います）
-
-> ⚠️ このトークンは**他人に教えないでください**。Chatwork を勝手に操作できる鍵です。
-
----
-
-## ステップ4: Chatwork のアカウントID を取得
-
-「数字のID」が必要です。プロフィール画面の英字IDではないので注意。
-
-### 取り方
-
-1. PowerShell で `task_scheduler` フォルダに移動:
-   ```powershell
-   cd "C:\Users\あなたのユーザー名\Documents\task_scheduler"
-   ```
-2. 仮想環境セットアップ（後のステップ7で詳しく）が済んでいれば、以下で確認できます:
-   ```powershell
-   .\.venv\Scripts\python.exe -c "import requests; print(requests.get('https://api.chatwork.com/v2/me', headers={'X-ChatWorkToken': 'ここにAPIトークンを貼る'}).json()['account_id'])"
-   ```
-
-または、**Chatwork の任意のチャットで自分宛てにメンションを書く**と、入力欄に `[To:1234567]` のようなタグが出ます。`To:` の後の数字があなたのアカウントIDです。
-
----
-
-## ステップ5: Google アカウントの設定（一番ややこしい）
-
-ツールが Google カレンダーに書き込めるように、Google 側で許可を出す手続きをします。
-
-### 半自動ウィザード（おすすめ）
-
-**ステップ7の `pip install` まで終わったあと**（仮想環境とライブラリが入った状態で）、同じフォルダで次を実行すると、必要な Google Cloud のページをブラウザで順に開き、`credentials.json` の中身を自動チェックし、続けて OAuth 認証まで案内します。
+### Windows PowerShell
 
 ```powershell
-cd "C:\Users\あなたのユーザー名\Documents\task_scheduler"
-.\.venv\Scripts\python.exe main.py setup-google
+.venv\Scripts\Activate.ps1
 ```
 
-- ブラウザを自動で開きたくない場合: `main.py setup-google --no-browser`（URLだけ表示）
-- OAuth 認証はあとで自分でやる場合: `main.py setup-google --skip-auth`
+### macOS / Linux
 
-ウィザードで詰まったときは、下の **5-1〜5-4** を手順書として読み替えてください。
+```bash
+source .venv/bin/activate
+```
 
-> 手順の**理解**はこのステップ5で進め、**コマンド実行**はステップ7のあとで行うのがおすすめです。
+依存ライブラリを入れます。
 
----
-
-### 5-1. Google Cloud のプロジェクトを作る
-
-1. [Google Cloud Console](https://console.cloud.google.com/) にアクセス（Google でログイン）
-2. 上部の **プロジェクト選択** をクリック → **「新しいプロジェクト」**
-3. プロジェクト名: 任意（例: `task-scheduler`）→ 作成
-4. プロジェクトが作られたら、画面上部のドロップダウンでそのプロジェクトを選択
-
-### 5-2. Google カレンダーAPI を有効にする
-
-1. 左メニューの **「APIとサービス」→「ライブラリ」**
-2. 検索ボックスに `Google Calendar API` と入力
-3. 出てきた「Google Calendar API」をクリック →「有効にする」
-
-### 5-3. OAuth 同意画面を作る
-
-1. 左メニューの **「APIとサービス」→「OAuth 同意画面」**（または「Google Auth Platform」）
-2. **「外部」** を選択 → 作成
-3. **アプリ情報**:
-   - アプリ名: 任意（例: `task_scheduler`）
-   - ユーザーサポートメール: 自分の Gmail
-   - デベロッパー連絡先: 自分の Gmail
-   - 「次へ」「次へ」「保存して次へ」と進む
-4. **テストユーザー**:
-   - **必ず自分の Gmail アドレスを追加**（しないと後で「アクセスをブロック」エラーになります）
-5. 「保存して次へ」「ダッシュボードに戻る」
-
-### 5-4. 認証情報（credentials.json）を作る
-
-1. 左メニューの **「APIとサービス」→「認証情報」**（または「クライアント」）
-2. 上部の **「+ 認証情報を作成」→「OAuth クライアントID」**
-3. **アプリケーションの種類**: **「デスクトップアプリ」** を選択
-4. 名前: 任意 → 作成
-5. 作成後のダイアログまたは一覧から **「JSONをダウンロード」**
-6. ダウンロードしたファイル（`client_secret_xxxxx.json` のような名前）を:
-   - **`credentials.json`** に名前を変更
-   - **`task_scheduler` フォルダの直下**に置く（`main.py` と同じ場所）
-
-> ⚠️ `credentials.json` も他人に渡さないでください。
+```bash
+pip install -r requirements.txt
+```
 
 ---
 
-## ステップ6: 設定ファイルを書く
+## 4. Chatwork APIトークンを取得
 
-`task_scheduler` フォルダの中で、2つの設定ファイルを作ります。
+Chatworkにログインし、APIトークンを発行してください。
 
-### 6-1. `.env` ファイル
+取得したトークンはパスワードと同じように扱い、他人に見せないでください。
 
-`task_scheduler` フォルダにある **`.env.example`** をコピーして、名前を **`.env`** に変えます。
+このツールでは **Chatwork APIトークンだけを使います。アカウントIDを調べる必要はありません。**
 
-中身は基本そのままで大丈夫です。タイムゾーンや時刻のデフォルト値を変えたい場合だけ編集します。
+---
 
-### 6-2. `accounts.yml` ファイル
+## 5. 設定ファイルを作成
 
-`accounts.yml.example` をコピーして、名前を **`accounts.yml`** に変えます。
+`.env.example` と `accounts.yml.example` をコピーします。
 
-メモ帳などで開いて、こう書きます:
+### Windows PowerShell
+
+```powershell
+Copy-Item .env.example .env
+Copy-Item accounts.yml.example accounts.yml
+```
+
+### macOS / Linux
+
+```bash
+cp .env.example .env
+cp accounts.yml.example accounts.yml
+```
+
+`accounts.yml` を開いて、Chatwork APIトークンを入力します。
 
 ```yaml
 accounts:
   - name: main
-    chatwork_api_token: ここにステップ3でコピーしたトークンを貼る
-    chatwork_my_account_id: ここにステップ4で取得したアカウントID（数字）
+    chatwork_api_token: ここにAPIトークン
 ```
 
-複数のChatworkアカウントを同期したい場合は、項目を追加できます:
+複数のChatworkアカウントをまとめたい場合は追加できます。
 
 ```yaml
 accounts:
   - name: main
     chatwork_api_token: トークン1
-    chatwork_my_account_id: 1234567
 
   - name: client_a
     chatwork_api_token: トークン2
-    chatwork_my_account_id: 7654321
 ```
 
-`name` は内部識別用の名前です（半角英数・アンダースコア・ハイフンのみ、ユニークに）。
-カレンダーには表示されません。
+`name` は内部識別用です。半角英数字・`_`・`-` を使い、それぞれ違う名前にしてください。
 
-> ⚠️ `accounts.yml` と `.env` は他人に渡さないでください。
+以前のバージョンで使っていた `chatwork_my_account_id` が残っていても、そのままで動きます。現在は使っていません。
 
 ---
 
-## ステップ7: 仮想環境を作って動かす
+## 6. Google Calendar APIを準備
 
-PowerShell で `task_scheduler` フォルダに移動して、3つのコマンドを順番に実行します。
+Google Calendarへ予定を書き込むため、初回だけGoogle Cloud側の準備が必要です。
 
-```powershell
-cd "C:\Users\あなたのユーザー名\Documents\task_scheduler"
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+まず以下を実行してください。
+
+```bash
+python main.py setup-google
 ```
 
-最後のコマンドは数十秒〜数分かかります。エラーなく終わればOK。
+セットアップウィザードが、Google Cloud Consoleで必要なページを順番に案内します。
 
-### Google 認証（初回のみ）
+大まかな流れは以下です。
 
-**おすすめ:** ステップ5の手順をブラウザで順に案内してくれるウィザードを使います（`credentials.json` の形式チェック付き）。
+1. Google Cloudでプロジェクトを作成
+2. Google Calendar APIを有効化
+3. OAuth同意画面を設定
+4. OAuth Client IDを **Desktop App** として作成
+5. JSONをダウンロード
+6. ファイル名を `credentials.json` にしてtask_scheduler直下へ置く
+7. OAuth認証を実行
 
-```powershell
-.\.venv\Scripts\python.exe main.py setup-google
+ウィザードを使わず手動で認証する場合は、`credentials.json` を置いたあとに実行します。
+
+```bash
+python main.py auth
 ```
 
-ウィザードの最後で OAuth 認証まで済ませた場合は、下の `main.py auth` は **不要** です。
+ブラウザが開いたら、自分のGoogleアカウントで許可してください。
 
-**手動で済ませたい場合**（`credentials.json` をすでに置いているとき）:
-
-```powershell
-.\.venv\Scripts\python.exe main.py auth
-```
-
-ブラウザが開きます。**ステップ5-3 でテストユーザーに追加した Gmail でログイン** → 「許可」をクリック → 「認証は完了しました」と出ればOK。
-
-> 「アクセスをブロック」と出たら、ステップ5-3 の **テストユーザー追加を忘れている** 可能性が高いです。Google Cloud Console の OAuth 同意画面でテストユーザーに自分の Gmail を追加してください。
-
-### お試し（カレンダーには書き込まない）
-
-```powershell
-.\.venv\Scripts\python.exe main.py sync --dry-run
-```
-
-「[dry-run] insert: ...」のような行が出れば、設定は完璧です。
-
-### 本番実行
-
-```powershell
-.\.venv\Scripts\python.exe main.py sync
-```
-
-Google カレンダーを開いて、Chatwork のタスクが予定として入っていれば成功です。
+> `credentials.json` と認証後に作られる `token.json` は他人に共有しないでください。
 
 ---
 
-## ステップ8: 自動実行（3時間ごと）の設定
+## 7. まずDry runで確認
 
-### Windows タスクスケジューラに登録
+いきなりGoogle Calendarへ書き込まず、取得内容だけ確認します。
 
-1. スタートメニューで **「タスクスケジューラ」** を検索して起動
-2. 右ペインの **「タスクの作成」** をクリック（「基本タスクの作成」ではなく）
+```bash
+python main.py sync --dry-run
+```
 
-#### 「全般」タブ
-- **名前**: `Chatwork → Google Calendar 同期`
-- **「ユーザーがログオンしているときのみ実行する」** を選択（パスワード入力が不要になります）
+`[dry-run] insert:` のようなログが表示されれば、Chatworkからタスクを取得できています。
 
-#### 「トリガー」タブ → 新規
-- 開始: 任意の日付の `0:00:00`
-- 「毎日」を選択
-- **「詳細設定」** → **「繰り返し間隔」** に `3 時間` と入力（プルダウンに無くても直接入力可）
-- 「継続時間」: 「無期限」
-- OK
-
-#### 「操作」タブ → 新規
-- **プログラム/スクリプト**:
-  ```
-  C:\Users\あなたのユーザー名\Documents\task_scheduler\.venv\Scripts\python.exe
-  ```
-- **引数の追加**:
-  ```
-  main.py sync
-  ```
-- **開始（オプション）**: ⚠️**ここ重要**
-  ```
-  C:\Users\あなたのユーザー名\Documents\task_scheduler
-  ```
-  これを設定しないと設定ファイルを読めず失敗します。
-
-#### 「条件」タブ
-- 「コンピュータをAC電源で使用している場合のみ」のチェックを外す（バッテリー駆動でも動くように）
-
-### 動作テスト
-
-タスクスケジューラの一覧から作ったタスクを **右クリック →「実行する」**
-→ 「最後の実行結果」が **「(0x0)」** なら成功
+自分に割り当てられた未完了タスクが0件の場合は、エラーにならず0件として終了します。
 
 ---
 
-## カレンダーに登録されたあとは
+## 8. 本番同期
 
-- カレンダー上で **ドラッグして時間を動かしてOK** です
-- ツールは「**一度登録したタスクは二度と更新しない**」設計なので、移動した予定が同期で元に戻ったりしません
-- Chatwork でタスクを完了しても、カレンダー上の予定は残ります（履歴として）
-- 不要になった予定は手動で削除してください
+```bash
+python main.py sync
+```
 
----
+Google Calendarを開き、Chatworkタスクが予定として追加されていれば成功です。
 
-## よくある質問
+### 日時の決まり方
 
-### Q. iPhone / Mac の Apple カレンダーアプリで見れますか？
+- 時刻まで期限あり → その期限時刻から開始
+- 日付だけ期限あり → その日の `DEFAULT_START_TIME` から開始
+- 期限なし → タスク元メッセージ投稿日の `DEFAULT_START_TIME` から開始
 
-iPhone や Mac の **設定で Google アカウントを追加** すれば、Apple カレンダーアプリでも Google カレンダーの予定が見られます。このツールは Google カレンダーに書き込むので、iPhone でも自動で同じ予定が見えます。
+予定の長さは `DEFAULT_DURATION_MIN` で決まります。
 
-- **iPhone**: 設定 → カレンダー → アカウント → アカウントを追加 → Google
-- **Mac**: システム設定 → インターネットアカウント → Google
+`.env` の既定値:
 
-### Q. Chatwork で完了したタスクはカレンダーから消えますか？
-
-消えません（仕様）。「やり終わった履歴」としてカレンダーに残ります。不要なら手動で削除してください。
-
-### Q. PCを起動していない時間（深夜など）はどうなりますか？
-
-その時間のスケジュール実行はスキップされます。次に PC が起動して同期が走ったときに、そのときオープンになっているタスクをまとめて取得・登録します。タスクが消えることはありません。
-
-### Q. うまく動かない時はどこを見ればいい？
-
-PowerShell で手動実行（`python main.py sync`）してエラーメッセージを確認するのが一番確実です。ログには日本語でエラーの場所が書いてあります。
-
-### Q. パスワードを入れる画面が出るのはなぜ？
-
-タスクスケジューラで「ユーザーがログオンしているかどうかにかかわらず実行する」を選ぶと、Windows のサインイン用パスワードを聞かれます。ログオン中だけ動けばOKなら「ユーザーがログオンしているときのみ」を選べばパスワード入力は不要です。
+```dotenv
+GOOGLE_CALENDAR_ID=primary
+TIMEZONE=Asia/Tokyo
+DEFAULT_START_TIME=10:00
+DEFAULT_DURATION_MIN=60
+LOG_LEVEL=INFO
+```
 
 ---
 
-## トラブル時の連絡先
+## 9. 定期実行する
 
-技術的な不具合や設定で詰まった場合は、開発元に問い合わせてください。
-問い合わせ時は **PowerShell に出たエラーメッセージのスクリーンショット** があると早く解決できます。
+### Windows
+
+Windowsの「タスク スケジューラ」で、定期的に以下を実行します。
+
+プログラム:
+
+```text
+C:\path\to\task_scheduler\.venv\Scripts\python.exe
+```
+
+引数:
+
+```text
+main.py sync
+```
+
+開始フォルダ:
+
+```text
+C:\path\to\task_scheduler
+```
+
+たとえば3時間ごとに実行すれば、Chatworkに増えたタスクを定期的にCalendarへ追加できます。
+
+macOS / LinuxではcronなどのOS標準スケジューラを利用できます。
+
+---
+
+## よく使うコマンド
+
+| コマンド | 内容 |
+|---|---|
+| `python main.py setup-google` | Google OAuthセットアップを案内 |
+| `python main.py auth` | Google認証のみ実行 |
+| `python main.py sync --dry-run` | 書き込まず同期内容を確認 |
+| `python main.py sync` | Google Calendarへ同期 |
+| `python main.py reset` | ローカル同期履歴を初期化 |
+
+`reset` を実行してもGoogle Calendar上のイベントは削除しません。
+
+---
+
+## 大事な仕様: 一度登録した予定は上書きしない
+
+このツールは **insert-only** です。
+
+一度ChatworkタスクをGoogle Calendarへ登録したあと、Calendar側で時間やタイトルを変更しても、その変更を同期ツールが元に戻すことはありません。
+
+その代わり、Chatwork側で後から期限や本文を変更しても、既に作られたCalendarイベントには自動反映しません。
+
+---
+
+## 絶対に公開しないもの
+
+以下はGitHub、Issue、Slack、SNSなどへ貼らないでください。
+
+- Chatwork APIトークン
+- `accounts.yml`
+- `credentials.json`
+- `token.json`
+- `.env` に秘密情報を追加した場合はその内容
+
+これらは `.gitignore` でGit管理から除外されています。
+
+もし誤って公開した場合は、ファイルを消すだけではなく、該当するトークンや認証情報を失効・再発行してください。
+
+---
+
+## うまくいかなかったら
+
+GitHub Issuesで報告してください。
+
+報告時にあると助かる情報:
+
+- OS
+- Pythonバージョン
+- 実行したコマンド
+- エラーメッセージ
+- どの手順で止まったか
+
+**APIトークン、OAuth認証情報、Chatworkの個人情報・メッセージ本文は必ず削除してから投稿してください。**
+
+第三者によるfresh-install検証も募集しています。初めて使って詰まった場所そのものが、ドキュメント改善の重要なフィードバックです。
