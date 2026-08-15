@@ -1,190 +1,265 @@
-# task_scheduler
+# task_scheduler — Chatwork Tasks → Google Calendar
 
-Chatwork で「自分が担当」になっているタスクを、定期的に Google カレンダー（メインカレンダー）へ自動登録する Python CLI ツール。**複数の Chatwork アカウント**を1つのカレンダーに集約できる。
+[![CI](https://github.com/Tatty1201/task_scheduler/actions/workflows/ci.yml/badge.svg)](https://github.com/Tatty1201/task_scheduler/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## 📚 ドキュメント
+**Chatworkで自分に割り当てられたタスクを、Google Calendarへ自動登録するローカル実行型のPython CLIです。**
+複数のChatworkアカウントを1つのGoogle Calendarへ集約できます。
 
-| 用途 | ファイル |
-|---|---|
-| はじめて使う方向けの丁寧な手順書 | **[USER_GUIDE.md](USER_GUIDE.md)** |
-| 別PC・別ユーザーへの配布手順 | **[DISTRIBUTION.md](DISTRIBUTION.md)** |
-| 開発者向けの設計メモ | [DESIGN.md](DESIGN.md) |
-| この README | 開発者向けセットアップ・仕様 |
+> A small, local-first Python CLI that syncs your assigned Chatwork tasks into Google Calendar. It supports multiple Chatwork accounts and keeps user credentials on the machine running the tool.
 
-## 特徴
+## Project status
 
-- **複数アカウント対応**: `accounts.yml` に複数のChatworkアカウントを登録でき、全アカウントのタスクを1つのカレンダーに集約する。
-- **insert-only**: 一度カレンダーに登録したタスクは以後一切更新しないため、ユーザーがカレンダー上でドラッグして時刻や色を変えても上書きされない。
-- **二重登録防止**: SQLite で `(account_name, task_id) → event_id` を管理 + `extendedProperties` でも検索することで、DB をリセットしても重複しない。
-- **全ルーム横断**: `GET /my/tasks` 1 回で全ルームの自分担当タスクを取得（自分が依頼したタスクは対象外）。
-- **期限なしタスクも取りこぼさない**: 登録日（メッセージ投稿日）の 10:00〜11:00 に登録する。
+**Early public OSS / testers welcome.**
 
-## 要件
+現在は実運用で使いながら、第三者が安全に導入できる形へ整備しています。バグ報告、導入時につまずいた点、ドキュメント改善、Pull Requestを歓迎します。
+
+- GitHub Issues: バグ・改善要望
+- Pull Requests: 小さく焦点を絞った改善を歓迎
+- Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Security: [SECURITY.md](SECURITY.md)
+- Changes / releases: [CHANGELOG.md](CHANGELOG.md)
+
+## Why this exists
+
+Chatworkのタスクを仕事の入口として使っていても、実際の一日の時間管理はGoogle Calendarで行う人は少なくありません。
+このツールは、その間の「タスクを予定に写す」作業を自動化します。
+
+設計上のポイントは **insert-only** です。
+一度Google Calendarへ登録したイベントは、その後このツールから更新しません。カレンダー上で時間・色・タイトルなどを手で変えても、次回同期で上書きされません。
+
+## Features
+
+- **複数Chatworkアカウント対応** — 複数アカウントの自分担当タスクを1つのカレンダーへ集約
+- **Insert-only** — 登録後のカレンダー編集を尊重し、自動で上書きしない
+- **二重登録防止** — SQLite + Google Calendar `extendedProperties` の二段構え
+- **全ルーム横断** — Chatwork `GET /my/tasks` で自分担当の未完了タスクを取得
+- **期限なしタスク対応** — 元メッセージ投稿日を基準に予定化
+- **Dry run** — 書き込み前に取得内容を確認可能
+- **ローカル認証情報** — APIトークン/OAuthトークンをGitに入れず、実行PCに保持
+- **自動テスト** — GitHub Actionsで複数Pythonバージョンを検証
+
+## Requirements
 
 - Python 3.10+
-- Chatwork API トークン（アカウントごとに1つ）
-- Google Cloud で作成した OAuth クライアント（Desktop App）
+- Chatwork API token（アカウントごと）
+- Google Cloudで作成したOAuth client（Desktop App）
 
-## セットアップ
+## Quick start
 
-### 1. 仮想環境と依存関係
+### 1. Clone and install
 
-```powershell
+```bash
+git clone https://github.com/Tatty1201/task_scheduler.git
 cd task_scheduler
 python -m venv .venv
-.venv\Scripts\activate
+```
+
+仮想環境を有効化します。
+
+**Windows PowerShell**
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+**macOS / Linux**
+
+```bash
+source .venv/bin/activate
+```
+
+依存関係をインストールします。
+
+```bash
 pip install -r requirements.txt
 ```
 
-### 2. 環境変数（共通設定）
+### 2. Create local config
 
-`.env.example` を `.env` にコピーして編集する。Chatwork系の認証情報は `.env` ではなく `accounts.yml` に記述する。
+```bash
+cp .env.example .env
+cp accounts.yml.example accounts.yml
+```
 
-| キー | 説明 |
-|------|------|
-| `GOOGLE_CALENDAR_ID` | 既定 `primary`（メインカレンダー） |
-| `TIMEZONE` | 既定 `Asia/Tokyo` |
-| `DEFAULT_START_TIME` | 期限時刻なしの場合の開始時刻（既定 `10:00`） |
-| `DEFAULT_DURATION_MIN` | 予定の長さ・分（既定 `60`） |
-| `LOG_LEVEL` | `DEBUG` / `INFO` / `WARNING` / `ERROR`（既定 `INFO`） |
+Windowsではエクスプローラー等でコピーしても構いません。
 
-### 3. Chatwork アカウント設定
-
-`accounts.yml.example` を `accounts.yml` にコピーして編集する。
+`accounts.yml` にChatworkアカウントを設定します。
 
 ```yaml
 accounts:
-  - name: main                       # 内部識別子 (重複防止に使用、カレンダー表示には出ない)
-    chatwork_api_token: xxxxxxxx...
+  - name: main
+    chatwork_api_token: your_token_here
+    chatwork_my_account_id: 1234567
+```
+
+複数アカウントを使う場合は項目を追加します。
+
+```yaml
+accounts:
+  - name: main
+    chatwork_api_token: token_for_main
     chatwork_my_account_id: 1234567
 
   - name: client_a
-    chatwork_api_token: yyyyyyyy...
+    chatwork_api_token: token_for_client_a
     chatwork_my_account_id: 7654321
 ```
 
-- `name` は **半角英数 / `_` / `-` の1〜32文字、ユニーク**にすること（例: `main`, `client_a`, `personal`）
-- カレンダーには表示されない内部識別子
-- Chatwork API トークン: [Chatwork の管理画面](https://www.chatwork.com/service/packages/chatwork/subpackages/api/token.php) で発行
-- `chatwork_my_account_id`: Chatwork プロフィールURLの末尾の数字
+`name` は内部識別用です。半角英数字・`_`・`-` の1〜32文字で、アカウントごとに重複しない値を設定してください。
 
-### 4. Google OAuth クライアントの用意
+### 3. Set up Google Calendar OAuth
 
-1. [Google Cloud Console](https://console.cloud.google.com/) でプロジェクトを作成
-2. 「APIとサービス」→「ライブラリ」で **Google Calendar API** を有効化
-3. 「APIとサービス」→「OAuth 同意画面」を構成（テスト ユーザーに自分のアカウントを追加）
-4. 「認証情報」→「認証情報を作成」→「OAuth クライアント ID」→ アプリケーションの種類 **デスクトップアプリ**
-5. 作成された JSON を `credentials.json` としてこのフォルダ直下に配置
+初回はセットアップウィザードを実行します。
 
-### 5. 初回認証
-
-```powershell
-python main.py auth
+```bash
+python main.py setup-google
 ```
 
-ブラウザが開くので Google アカウントで認可する。完了すると `token.json` が生成される。
+ウィザードはGoogle Cloud Consoleの必要ページを案内し、`credentials.json` の確認からOAuth認証まで進めます。
 
-### 6. 動作確認（カレンダーに書き込まないドライラン）
+手動で行う場合は以下です。
 
-```powershell
+1. Google Cloudでプロジェクトを作成
+2. Google Calendar APIを有効化
+3. OAuth同意画面を構成
+4. OAuth Client ID（Desktop App）を作成
+5. ダウンロードしたJSONを `credentials.json` としてプロジェクト直下へ置く
+6. `python main.py auth` を実行
+
+### 4. Dry run
+
+最初はカレンダーへ書き込まず確認します。
+
+```bash
 python main.py sync --dry-run
 ```
 
-問題なければ実書き込み:
+### 5. Sync
 
-```powershell
+```bash
 python main.py sync
 ```
 
-## Windows タスクスケジューラへの登録（1日8回 / 3時間おき）
+## Commands
 
-1. **タスクの作成**を開く
-2. 「全般」タブ
-   - 名前: `Chatwork → Google Calendar 同期`
-   - 「ユーザーがログオンしているかどうかにかかわらず実行する」を選択
-3. 「トリガー」タブ → 新規
-   - 開始: 任意の日付の `00:00:00`
-   - 繰り返し間隔: **3時間** / 継続時間: **無期限**
-4. 「操作」タブ → 新規
-   - プログラム/スクリプト: `<task_scheduler>\.venv\Scripts\python.exe`
-   - 引数の追加: `main.py sync`
-   - 開始（オプション）: `<task_scheduler>` の絶対パス
-5. 「条件」「設定」は要件に合わせて調整
-
-これで 00:00 / 03:00 / 06:00 / 09:00 / 12:00 / 15:00 / 18:00 / 21:00 に同期が走る。
-
-## コマンド一覧
-
-| コマンド | 動作 |
-|---------|------|
-| `python main.py setup-google` | **初回推奨** Google Cloud のページを順に開き、`credentials.json` を検証し、OAuth 認証まで案内 |
-| `python main.py setup-google --no-browser` | 上記と同じがブラウザは開かない（URLのみ表示） |
-| `python main.py setup-google --skip-auth` | `credentials.json` の検証のみ（`auth` は実行しない） |
-| `python main.py auth` | Google OAuth ブラウザ認可のみ（`credentials.json` がある前提） |
-| `python main.py sync` | `accounts.yml` の全アカウントを順に同期 |
-| `python main.py sync --dry-run` | カレンダーに書き込まずログ出力 |
-| `python main.py reset` | `sync_state.db` を初期化（カレンダーのイベントは残る） |
-
-## 動作仕様
-
-### 取得対象
-
-- 各アカウントごとに `GET /my/tasks?status=open` で取得
-- `status=done`（完了）は対象外
-- 自分が依頼したタスクは対象外
-
-### 日時マッピング
-
-| `limit_type` | カレンダーに入る時間 |
+| Command | Description |
 |---|---|
-| `time` | 期限時刻 〜 +1時間（例 14:30 → 14:30〜15:30） |
-| `date` | 期限当日の 10:00〜11:00 |
-| `none` | 登録日（メッセージ投稿日）の 10:00〜11:00 |
+| `python main.py setup-google` | Google Calendar OAuthの初回セットアップを案内 |
+| `python main.py setup-google --no-browser` | URLを表示するだけでブラウザを自動起動しない |
+| `python main.py setup-google --skip-auth` | `credentials.json` の検証まで実行 |
+| `python main.py auth` | Google OAuth認証のみ実行 |
+| `python main.py sync --dry-run` | カレンダーへ書かず同期内容を確認 |
+| `python main.py sync` | 全アカウントを同期 |
+| `python main.py reset` | ローカル同期状態DBを初期化（Google Calendarのイベントは残る） |
 
-開始時刻 `10:00` と長さ `60` 分は `.env` で変更可能。
+## How task dates are mapped
 
-### イベント内容
+| Chatwork `limit_type` | Google Calendar |
+|---|---|
+| `time` | 指定された期限時刻から `DEFAULT_DURATION_MIN` 分 |
+| `date` | 期限日の `DEFAULT_START_TIME` から開始 |
+| `none` | 元メッセージ投稿日の `DEFAULT_START_TIME` から開始 |
 
-- タイトル: `[ルーム名] タスク本文の先頭80文字` （アカウント名は含めない）
-- 説明:
-  ```
-  依頼者: <Chatworkの依頼者名>
-  登録日時: YYYY-MM-DD HH:MM
-  Chatworkで開く: https://www.chatwork.com/#!rid{room_id}-{message_id}
-  task_id: <Chatwork task_id>
-  ```
-- 隠しメタデータ: `extendedProperties.private.chatwork_task_key = <account_name>:<task_id>`（重複検出用）
+既定値は `.env` で変更できます。
 
-### 重複防止の仕組み
+```dotenv
+GOOGLE_CALENDAR_ID=primary
+TIMEZONE=Asia/Tokyo
+DEFAULT_START_TIME=10:00
+DEFAULT_DURATION_MIN=60
+LOG_LEVEL=INFO
+```
 
-複数アカウントで同じ `task_id` が振られる可能性があるため、内部キーは `(account_name, task_id)` の複合キー。
+## Duplicate prevention
 
-1. SQLite `task_events` に `(account_name, task_id) → event_id` を保存
-2. 新規登録時は `events.list(privateExtendedProperty=chatwork_task_key=<account>:<id>)` で念のため検索 → 見つかれば DB に書き戻してスキップ
+同じタスクを何度もカレンダーへ作らないため、2段階で確認します。
 
-## トラブルシュート
+1. SQLite `sync_state.db` に `(account_name, task_id) -> event_id` を保存
+2. Google Calendar側にも `extendedProperties.private.chatwork_task_key` を保存して検索
 
-- **`credentials.json が見つかりません`**: セットアップ 4 を実施。
-- **`accounts.yml が見つかりません`**: `accounts.yml.example` を `accounts.yml` にコピー。
-- **トークン期限切れ**: `python main.py auth` で再認証。
-- **特定アカウントだけ取得失敗**: ログに `[<account_name>] /my/tasks 取得失敗` が出る。API トークンの有効性を確認。他のアカウントは影響を受けず継続。
-- **タスクが取れない**: Chatwork API のトークン権限と `status=open` を確認。
-- **`No time zone found with key Asia/Tokyo`（Windows）**: IANA タイムゾーンデータが無いと出る。`pip install -r requirements.txt` で `tzdata` を入れる（`requirements.txt` に含めてある）。
+そのためローカルDBを失っても、Calendar側のメタデータが残っていれば重複を検出できます。
 
-## よくある質問
+## Automatic execution
 
-### iPhone / Mac の Apple カレンダーアプリで見れますか？
+このCLIをOSのスケジューラから定期実行できます。
 
-iPhone・Mac の **設定で Google アカウントを追加** すれば、Apple カレンダーアプリにも Google カレンダーの予定が同期されて表示されます。このツール側の変更は不要です。
+Windowsでは「タスク スケジューラ」から、たとえば3時間おきに以下を実行します。
 
-- **iPhone**: 設定 → カレンダー → アカウント → アカウントを追加 → Google
-- **Mac**: システム設定 → インターネットアカウント → Google
+```text
+<project>\.venv\Scripts\python.exe main.py sync
+```
 
-iCloud カレンダーに **直接** 書き込みたい場合は別途 CalDAV 対応の実装が必要です（現在は未対応）。
+詳しい配布・定期実行手順は [DISTRIBUTION.md](DISTRIBUTION.md) を参照してください。
 
-## 関連ドキュメント
+## Privacy and credentials
 
-- 設計詳細: [DESIGN.md](DESIGN.md)
-- 利用マニュアル（非開発者向け）: [USER_GUIDE.md](USER_GUIDE.md)
-- 配布ガイド: [DISTRIBUTION.md](DISTRIBUTION.md)
-- 開発ルール: `../_core/principles/dev-rules-python.md`
+このプロジェクト自身が運営するサーバーはありません。認証情報は実行するPCに保存します。
+
+Gitにコミットしてはいけないファイル:
+
+- `.env`
+- `accounts.yml`
+- `credentials.json`
+- `token.json`
+- `sync_state.db`
+
+これらは `.gitignore` で除外されています。
+
+誤って認証情報をGitへコミットした場合は、後からファイルを削除するだけではなく、該当トークンや認証情報を必ず失効・再発行してください。
+
+## Current limitations
+
+- **Insert-only:** Chatwork側でタスク本文や期限を後から変更しても、既に作成済みのCalendarイベントには反映しません。
+- **Chatwork API limit:** `GET /my/tasks` は1回の取得で最大100件です。100件を超える未完了タスクを常時持つ運用では取りこぼす可能性があります。
+- **Google OAuth setup:** 現在は各利用者が自分のGoogle Cloudプロジェクト/OAuth Clientを用意する方式です。
+- **Calendar target:** 現在は全Chatworkアカウントを共通の `GOOGLE_CALENDAR_ID` に集約します。
+
+## Development
+
+開発用依存関係を追加します。
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+```
+
+テスト:
+
+```bash
+python -m pytest -q
+```
+
+Pull RequestではGitHub ActionsのCIも自動実行されます。
+
+## Roadmap
+
+- [ ] 第三者によるセットアップ検証と導入手順改善
+- [ ] 初回 `v0.1.0` リリース
+- [ ] アカウントごとのCalendar ID
+- [ ] より分かりやすい初回セットアップ
+- [ ] エラー表示・設定バリデーション改善
+- [ ] macOS / Linuxの定期実行ガイド強化
+- [ ] 実利用者からのIssueをもとに優先順位を更新
+
+## Documentation
+
+| Document | Purpose |
+|---|---|
+| [USER_GUIDE.md](USER_GUIDE.md) | 初めて使う方向けの詳しい手順 |
+| [DISTRIBUTION.md](DISTRIBUTION.md) | 別PC・別ユーザーへの配布と定期実行 |
+| [DESIGN.md](DESIGN.md) | アーキテクチャと設計判断 |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | 開発参加方法 |
+| [SECURITY.md](SECURITY.md) | セキュリティ報告方針 |
+| [CHANGELOG.md](CHANGELOG.md) | 変更履歴とRelease準備 |
+
+## Contributing
+
+バグ報告・改善案・Pull Requestを歓迎します。
+まず [CONTRIBUTING.md](CONTRIBUTING.md) を確認してください。
+
+特に、**実際にセットアップして詰まった場所をIssueで教えてもらうこと**は大きな助けになります。
+
+## License
+
+MIT License. See [LICENSE](LICENSE).
