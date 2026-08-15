@@ -78,6 +78,13 @@ class ChatworkClient:
                 continue
 
             response.raise_for_status()
+
+            # Chatwork API は対象データが0件のとき 204 No Content を返す。
+            # 空ボディに対して response.json() を呼ぶと JSONDecodeError になるため、
+            # ここで明示的に None として扱う。
+            if response.status_code == 204:
+                return None
+
             return response.json()
 
         # 全リトライ失敗
@@ -87,6 +94,9 @@ class ChatworkClient:
 
     def list_my_tasks(self, status: str = "open") -> list[dict[str, Any]]:
         """自分担当のタスク一覧を返す。
+
+        Chatwork API は該当タスクが0件の場合に 204 No Content を返すため、
+        呼び出し側には常に list を返す。
 
         Returns:
             タスクdictのリスト。各dictの主要キー:
@@ -99,8 +109,16 @@ class ChatworkClient:
               limit_type (str: "none" | "date" | "time")
               status (str: "open" | "done")
         """
-        return self._request("/my/tasks", params={"status": status})
+        data = self._request("/my/tasks", params={"status": status})
+        if data is None:
+            return []
+        if not isinstance(data, list):
+            raise TypeError("Chatwork /my/tasks response is not a list")
+        return data
 
     def get_message(self, room_id: int, message_id: str) -> dict[str, Any]:
         """メッセージ詳細を返す。`send_time` (Unix秒) を含む。"""
-        return self._request(f"/rooms/{room_id}/messages/{message_id}")
+        data = self._request(f"/rooms/{room_id}/messages/{message_id}")
+        if not isinstance(data, dict):
+            raise ValueError("Chatwork message response is empty or invalid")
+        return data
