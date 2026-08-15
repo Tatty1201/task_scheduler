@@ -1,216 +1,163 @@
-# コード配布ガイド
+# 配布・別PCへの導入ガイド
 
-このツールを別の人・別のPCで動かすための手順をまとめます。
-
----
+このツールを別の人・別のPCで使うときの基本方針をまとめます。
 
 ## 大原則
 
-**コードは共有してOK、個人情報・認証情報は絶対に共有しない**
+**コードは共有してOK。認証情報は共有しない。**
 
-| 共有してOK | 絶対に共有しない |
-|---|---|
-| `*.py` ファイル全部 | `.env` |
-| `requirements.txt` | `accounts.yml`（API トークンが入っている） |
-| `.gitignore` | `credentials.json`（Google OAuth クライアント） |
-| `.env.example` | `token.json`（Google アクセストークン） |
-| `accounts.yml.example` | `sync_state.db`（同期履歴） |
-| `README.md` / `USER_GUIDE.md` / `DISTRIBUTION.md` / `DESIGN.md` | `.venv/`（仮想環境フォルダ） |
+共有してよいもの:
 
-これらの「共有しない」ファイルは `.gitignore` で除外済みなので、Git で配布する場合は心配不要です。
+- GitHub上のソースコード
+- `requirements.txt`
+- `.env.example`
+- `accounts.yml.example`
+- READMEや各種ドキュメント
 
----
+共有してはいけないもの:
 
-## 配布方法
+- `.env`
+- `accounts.yml`
+- `credentials.json`
+- `token.json`
+- `sync_state.db`
+- 実際のChatwork APIトークン
 
-### 方法A: ZIP で渡す（一番簡単）
+これらは `.gitignore` で除外しています。
 
-1. **`task_scheduler` フォルダを丸ごとコピー**して別の場所（例: デスクトップ）に置く
-2. コピーしたフォルダの中から **以下を削除**:
-   - `.venv/` フォルダ
-   - `.env` ファイル
-   - `accounts.yml` ファイル
-   - `credentials.json` ファイル
-   - `token.json` ファイル
-   - `sync_state.db` ファイル
-   - `__pycache__/` フォルダ（あれば）
-3. 残ったフォルダを ZIP で圧縮して渡す
+## おすすめの配布方法
 
-### 方法B: Git で渡す
+GitHubの公開リポジトリから、利用者本人にcloneまたはZIP取得してもらう方法を推奨します。
 
-`.gitignore` で除外設定済みなので、安全に共有できます。
-
-```powershell
-cd task_scheduler
-git init
-git add .
-git commit -m "initial commit"
-# GitHub などに push する
-```
-
-受け取る側:
-```powershell
-git clone <リポジトリURL>
+```bash
+git clone https://github.com/Tatty1201/task_scheduler.git
 cd task_scheduler
 ```
 
-> 確認: ZIP 化やコミット前に必ず `.env` `accounts.yml` `credentials.json` `token.json` が含まれていないことをチェックしてください。
+こうすると、コードと認証情報を分離したまま更新履歴も追えます。
 
----
+## 利用者が自分で用意するもの
 
-## 別PC・別アカウントでセットアップする手順
+各利用者は、自分の環境で以下を用意します。
 
-受け取った側のセットアップは、基本的に [USER_GUIDE.md](USER_GUIDE.md) のステップ1〜8をそのまま実行すれば動きます。
+1. Python 3.10以上
+2. 自分のChatwork APIトークン
+3. 自分のGoogleアカウント
+4. 自分のGoogle Cloud OAuth Client
 
-ここでは「**配布を受け取った人がすること**」を簡潔にまとめます。
+**ChatworkのアカウントIDは不要です。**
 
-### 必要なもの（受け取る人が自分で用意）
+## 別PCでのセットアップ
 
-1. **Python 3.10 以上**（[インストール手順](USER_GUIDE.md#ステップ1-python-をインストール)）
-2. **自分の Chatwork アカウント**（API トークン取得が可能であること）
-3. **自分の Google アカウント**
+### 1. 仮想環境と依存関係
 
-### 配布を受け取った人の手順
+```bash
+python -m venv .venv
+```
 
-#### 1. 配布されたフォルダを置く
+仮想環境を有効化後:
 
-ZIP なら解凍、Git なら clone。お好みの場所（例: `Documents\task_scheduler`）に置きます。
+```bash
+pip install -r requirements.txt
+```
 
-#### 2. 自分用の設定ファイルを作る
+### 2. ローカル設定を作る
 
-フォルダ内の例ファイルをコピーして自分用にする:
+Windows PowerShell:
 
 ```powershell
-cd "C:\Users\(あなたのユーザー名)\Documents\task_scheduler"
 Copy-Item .env.example .env
 Copy-Item accounts.yml.example accounts.yml
 ```
 
-#### 3. Chatwork トークンとアカウントID を `accounts.yml` に書く
+macOS / Linux:
 
-メモ帳で `accounts.yml` を開いて編集:
+```bash
+cp .env.example .env
+cp accounts.yml.example accounts.yml
+```
+
+`accounts.yml`:
 
 ```yaml
 accounts:
   - name: main
-    chatwork_api_token: 自分のChatwork APIトークン
-    chatwork_my_account_id: 自分のChatworkアカウントID（数字）
+    chatwork_api_token: 利用者本人のAPIトークン
 ```
 
-トークン取得は [USER_GUIDE のステップ3〜4](USER_GUIDE.md#ステップ3-chatwork-api-トークンを取得) を参照。
+複数アカウントの場合:
 
-#### 4. 自分の Google Cloud プロジェクトを作って `credentials.json` を入手
+```yaml
+accounts:
+  - name: main
+    chatwork_api_token: トークン1
 
-Google の OAuth は **配布元の人とは別に、受け取った人自身が自分のGoogle Cloudプロジェクトを作る必要があります**。
-
-理由:
-- OAuth クライアントは「テストユーザー」を最大100名までしか登録できない
-- セキュリティ上、配布元の `credentials.json` を共有するのは推奨されない
-- 配布元の Google Cloud プロジェクトに依存すると、配布元がプロジェクトを消した瞬間に全員動かなくなる
-
-手順は [USER_GUIDE のステップ5](USER_GUIDE.md#ステップ5-google-アカウントの設定一番ややこしい) を参照。
-ダウンロードした `credentials.json` を `task_scheduler` フォルダ直下に置く。
-
-#### 5. 仮想環境を作って依存ライブラリをインストール
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+  - name: client_a
+    chatwork_api_token: トークン2
 ```
 
-#### 6. Google 認証
+以前の設定に `chatwork_my_account_id` が残っていても問題ありません。現在は使わないため無視されます。
 
-**おすすめ:** Console の必要ページを順に開き、`credentials.json` を検証してから OAuth まで案内します。
+### 3. Google OAuth
 
-```powershell
-.\.venv\Scripts\python.exe main.py setup-google
+```bash
+python main.py setup-google
 ```
 
-すでに `credentials.json` を自分で置いた場合のみ:
+利用者本人のGoogle CloudプロジェクトでOAuth Clientを作成し、ダウンロードしたJSONを `credentials.json` として配置します。
 
-```powershell
-.\.venv\Scripts\python.exe main.py auth
+認証後に作られる `token.json` も、その利用者のPCだけに保存します。
+
+### 4. Dry run
+
+```bash
+python main.py sync --dry-run
 ```
 
-ブラウザが開いて Google 認証 → `token.json` が生成される。
+### 5. 本番同期
 
-#### 7. 動作確認
-
-```powershell
-.\.venv\Scripts\python.exe main.py sync --dry-run
-.\.venv\Scripts\python.exe main.py sync
+```bash
+python main.py sync
 ```
 
-#### 8. 自動実行を設定
+## 定期実行
 
-[USER_GUIDE のステップ8](USER_GUIDE.md#ステップ8-自動実行3時間ごとの設定) を参照。
-パス（`プログラム/スクリプト` と `開始（オプション）`）は **自分のフォルダ位置** に書き換える必要があります。
+### Windows
 
----
+Windows Task Schedulerから、プロジェクトの仮想環境Pythonで以下を定期実行します。
 
-## よくある質問
+```text
+main.py sync
+```
 
-### Q. 配布元の `credentials.json` を使い回せませんか？
+「開始」フォルダはtask_schedulerのプロジェクト直下にしてください。
 
-技術的には可能ですが、推奨しません。
-- 配布元の Google Cloud プロジェクトのテストユーザーに毎回追加してもらう必要がある（最大100名）
-- 配布元の責任で他人のカレンダーにアクセスできてしまう構造になる
-- OAuth 同意画面が「配布元の名前」で表示されて怪しまれる
+### macOS / Linux
 
-各自で自分のプロジェクトを作るのが安全で確実です。
+cronなど、OS標準の定期実行機能から同じコマンドを実行できます。
 
-### Q. 配布元の `accounts.yml` を渡されたらどうすればいい？
+## 更新するとき
 
-**Chatwork トークンは個人の鍵なので、即座にあなた自身のものに書き換えてください。**
-他人のトークンを使うと、そのトークンの持ち主のカレンダーにあなたの権限で書き込むことになり、トラブルのもとです。
+Git cloneで導入している場合は、ローカル設定を保持したままコードだけ更新できます。
 
-### Q. 配布元と同じ Chatwork アカウントを使いたい場合は？
+```bash
+git pull
+pip install -r requirements.txt
+```
 
-`accounts.yml` に同じトークンを書けば動きますが、**同じカレンダーに重複登録されることになります**（Google アカウントが違えば違うカレンダーですが、同じ Google アカウントだと衝突する可能性あり）。
-基本的にツールは「1人 = 1セットアップ」を想定しています。
+`.env`、`accounts.yml`、`credentials.json`、`token.json` はGit管理されていないため通常はそのまま残ります。
 
-### Q. Mac でも動きますか？
+更新前後でCHANGELOGも確認してください。
 
-技術的には可能ですが、このマニュアルは Windows 前提で書かれています。Mac で動かす場合:
-- Python のインストール: `brew install python` か公式インストーラ
-- パスの書き方: `\` ではなく `/`
-- 仮想環境の有効化: `source .venv/bin/activate`
-- Windows タスクスケジューラの代わりに **launchd** または **cron** で定期実行
+## 配布前・Issue投稿前の安全確認
 
-### Q. 複数人が同じPCで使えますか？
+- [ ] Chatwork APIトークンが含まれていない
+- [ ] `accounts.yml` が含まれていない
+- [ ] `credentials.json` が含まれていない
+- [ ] `token.json` が含まれていない
+- [ ] `.env` に秘密情報がある場合、それが含まれていない
+- [ ] ログやスクリーンショットに個人情報が写っていない
 
-可能です。各自が別フォルダ（例: `task_scheduler_alice` / `task_scheduler_bob`）にコピーして、それぞれ別の `accounts.yml` / `credentials.json` を入れれば独立して動きます。
-タスクスケジューラのタスクも別名で2つ作る必要があります。
+認証情報を誤って公開した場合は、Gitから削除するだけでなく、必ず該当するトークンやOAuth認証情報を失効・再発行してください。
 
-### Q. アップデート（コードの更新）はどうすればいい？
-
-Git で配布している場合は `git pull`。ZIP の場合は新しい ZIP を解凍して、古いフォルダの個人情報ファイル（`.env` `accounts.yml` `credentials.json` `token.json` `sync_state.db`）を新しいフォルダに **コピー** すれば、設定を引き継いで使えます。
-
----
-
-## チェックリスト（配布する側）
-
-ZIP で配布する前にチェック:
-
-- [ ] `.venv/` フォルダを削除した
-- [ ] `.env` を削除した
-- [ ] `accounts.yml` を削除した
-- [ ] `credentials.json` を削除した
-- [ ] `token.json` を削除した
-- [ ] `sync_state.db` を削除した
-- [ ] `__pycache__/` フォルダを削除した
-- [ ] `.env.example` と `accounts.yml.example` は残っている
-- [ ] `USER_GUIDE.md` と `DISTRIBUTION.md` を一緒に渡す
-
-## チェックリスト（受け取る側）
-
-- [ ] Python 3.10 以上をインストールした
-- [ ] フォルダを好きな場所に置いた
-- [ ] `.env.example` をコピーして `.env` を作った
-- [ ] `accounts.yml.example` をコピーして `accounts.yml` を作り、自分のトークンとIDを書いた
-- [ ] 自分の Google Cloud プロジェクトを作り、`setup-google` で進めた **または** `credentials.json` を自分で配置した
-- [ ] `python -m venv .venv` と `pip install -r requirements.txt` を実行した
-- [ ] `python main.py setup-google` で Google 手順を進めた **または** `python main.py auth` で Google 認証した
-- [ ] `python main.py sync --dry-run` でエラーが出ないことを確認した
-- [ ] `python main.py sync` でカレンダーに予定が入った
-- [ ] タスクスケジューラに登録した
+詳しい初回導入は [USER_GUIDE.md](USER_GUIDE.md) を参照してください。
