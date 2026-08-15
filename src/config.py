@@ -28,7 +28,6 @@ class ChatworkAccount:
 
     name: str  # 内部識別子 (重複防止キーに使う)
     api_token: str
-    my_account_id: int
 
 
 @dataclass(frozen=True)
@@ -47,18 +46,12 @@ class AppConfig:
     db_path: Path
 
 
-def _require_env(key: str) -> str:
-    value = os.getenv(key)
-    if not value:
-        raise RuntimeError(
-            f"環境変数 {key} が設定されていません。"
-            f" {ENV_PATH} を作成して必要な値を設定してください。"
-        )
-    return value
-
-
 def _load_accounts(path: Path) -> list[ChatworkAccount]:
-    """accounts.yml から Chatwork アカウント一覧を読み込む。"""
+    """accounts.yml から Chatwork アカウント一覧を読み込む。
+
+    `chatwork_my_account_id` は過去の設定との後方互換のためファイル内に
+    残っていてもよいが、同期処理には不要なので読み込まない。
+    """
     if not path.exists():
         raise FileNotFoundError(
             f"{path} が見つかりません。"
@@ -82,7 +75,6 @@ def _load_accounts(path: Path) -> list[ChatworkAccount]:
 
         name = str(item.get("name", "")).strip()
         token = str(item.get("chatwork_api_token", "")).strip()
-        my_id_raw = item.get("chatwork_my_account_id")
 
         if not name:
             raise ValueError(f"{path} accounts[{idx}].name が空です")
@@ -95,21 +87,8 @@ def _load_accounts(path: Path) -> list[ChatworkAccount]:
             raise ValueError(f"{path} accounts[].name='{name}' が重複しています")
         if not token:
             raise ValueError(f"{path} accounts[{idx}].chatwork_api_token が空です")
-        if my_id_raw is None:
-            raise ValueError(
-                f"{path} accounts[{idx}].chatwork_my_account_id が未設定です"
-            )
 
-        try:
-            my_id = int(my_id_raw)
-        except (TypeError, ValueError) as exc:
-            raise ValueError(
-                f"{path} accounts[{idx}].chatwork_my_account_id が整数ではありません"
-            ) from exc
-
-        accounts.append(
-            ChatworkAccount(name=name, api_token=token, my_account_id=my_id)
-        )
+        accounts.append(ChatworkAccount(name=name, api_token=token))
         seen_names.add(name)
 
     return accounts
