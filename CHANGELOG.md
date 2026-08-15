@@ -9,9 +9,15 @@ The project follows semantic versioning for public releases.
 ### Added
 
 - Automated CI tests across supported Python versions.
-- Unit tests for Chatwork API empty responses, task mapping, and sync-state behavior.
+- Unit tests for Chatwork API empty responses, task mapping, sync-state behavior, and account configuration.
 - MIT license and contribution/security documentation.
 - GitHub Issue and Pull Request templates.
+
+### Changed
+
+- Simplified Chatwork setup so each account only requires a name and API token.
+- `chatwork_my_account_id` is no longer required; legacy values remain accepted and are ignored.
+- Reworked README, user guide, and distribution guide around third-party installation.
 
 ### Fixed
 
